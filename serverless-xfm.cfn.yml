@@ -1,0 +1,428 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Teachers Pet Transcribe and Question Generation Clusters
+Globals:
+  Function:
+    Runtime: nodejs10.x
+Mappings:
+  SubnetConfig:
+    VPC:
+      CIDR: 10.0.0.0/16
+    PublicOne:
+      CIDR: 10.0.0.0/24
+    PublicTwo:
+      CIDR: 10.0.1.0/24
+Resources:
+  SourceAudioBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::AccountId}-us-west-2-sourceaudiobucket
+  SourceTextBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::AccountId}-us-west-2-sourcetextbucket
+      AccessControl: PublicReadWrite
+  StartTranscriptionJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/index.startTranscriptionJob
+      FunctionName: StartTranscriptionJobFunction
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action: s3:GetObject*
+          Resource:
+            Fn::Sub: arn:aws:s3:::${AWS::AccountId}-us-west-2-sourceaudiobucket/*
+        - Effect: Allow
+          Action: transcribe:StartTranscriptionJob
+          Resource: '*'
+      Events:
+        UploadAudio:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: SourceAudioBucket
+            Events: s3:ObjectCreated:*
+      Environment:
+        Variables:
+          TEXT_BUCKET:
+            Fn::Sub: ${AWS::AccountId}-us-west-2-sourcetextbucket
+      CodeUri: s3://460163561631-us-west-2-kamn-ml/6572d657e64f00481b6549c54af0b51d
+  StartQuestionGenerationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/index.startQuestionGenerationFunction
+      FunctionName: StartQuestionGenerationFunction
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action: s3:GetObject*
+          Resource:
+            Fn::Sub: arn:aws:s3:::${AWS::AccountId}-us-west-2-sourcetextbucket/*
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action: ecs:RunTask
+          Resource:
+            Ref: TaskDefinition
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - iam:GetRole
+          - iam:PassRole
+          Resource:
+          - Fn::GetAtt:
+            - TaskRole
+            - Arn
+          - Fn::GetAtt:
+            - ExecutionRole
+            - Arn
+      Events:
+        UploadText:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: SourceTextBucket
+            Events: s3:ObjectCreated:*
+      Environment:
+        Variables:
+          TEXT_BUCKET:
+            Fn::Sub: ${AWS::AccountId}-us-west-2-sourcetextbucket
+          TASK_DEFINITION:
+            Ref: TaskDefinition
+          ECS_CLUSTER:
+            Fn::GetAtt:
+            - ECSCluster
+            - Arn
+          SUBNET_ONE:
+            Ref: PublicSubnetOne
+          SUBNET_TWO:
+            Ref: PublicSubnetTwo
+          SECURITY_GROUP:
+            Ref: FargateContainerSecurityGroup
+      CodeUri: s3://460163561631-us-west-2-kamn-ml/6572d657e64f00481b6549c54af0b51d
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      CidrBlock:
+        Fn::FindInMap:
+        - SubnetConfig
+        - VPC
+        - CIDR
+  PublicSubnetOne:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - 0
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      VpcId:
+        Ref: VPC
+      CidrBlock:
+        Fn::FindInMap:
+        - SubnetConfig
+        - PublicOne
+        - CIDR
+      MapPublicIpOnLaunch: true
+  PublicSubnetTwo:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - 1
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      VpcId:
+        Ref: VPC
+      CidrBlock:
+        Fn::FindInMap:
+        - SubnetConfig
+        - PublicTwo
+        - CIDR
+      MapPublicIpOnLaunch: true
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachement:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: VPC
+      InternetGatewayId:
+        Ref: InternetGateway
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachement
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+  PublicSubnetOneRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnetOne
+      RouteTableId:
+        Ref: PublicRouteTable
+  PublicSubnetTwoRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnetTwo
+      RouteTableId:
+        Ref: PublicRouteTable
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+  FargateContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the Fargate containers
+      VpcId:
+        Ref: VPC
+  EcsSecurityGroupIngressFromPublicALB:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from the public ALB
+      GroupId:
+        Ref: FargateContainerSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId:
+        Ref: PublicLoadBalancerSG
+  EcsSecurityGroupIngressFromSelf:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from other containers in the same security group
+      GroupId:
+        Ref: FargateContainerSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId:
+        Ref: FargateContainerSecurityGroup
+  PublicLoadBalancerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the public facing load balancer
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: -1
+  PublicLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+      - Key: idle_timeout.timeout_seconds
+        Value: '30'
+      Subnets:
+      - Ref: PublicSubnetOne
+      - Ref: PublicSubnetTwo
+      SecurityGroups:
+      - Ref: PublicLoadBalancerSG
+  DummyTargetGroupPublic:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 6
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Name:
+        Fn::Join:
+        - '-'
+        - - Ref: AWS::StackName
+          - drop-1
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Ref: VPC
+  PublicLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+    - PublicLoadBalancer
+    Properties:
+      DefaultActions:
+      - TargetGroupArn:
+          Ref: DummyTargetGroupPublic
+        Type: forward
+      LoadBalancerArn:
+        Ref: PublicLoadBalancer
+      Port: 80
+      Protocol: HTTP
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+      Policies:
+      - PolicyName: SQSAccess
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action: sqs:SendMessage
+            Resource: '*'
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn: LogGroup
+    Properties:
+      Family:
+        Fn::Sub: ${AWS::StackName}-nlp-task-definition
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      ExecutionRoleArn:
+        Ref: ExecutionRole
+      TaskRoleArn:
+        Ref: TaskRole
+      RequiresCompatibilities:
+      - FARGATE
+      ContainerDefinitions:
+      - Name: question-gen
+        Cpu: '10'
+        Essential: 'true'
+        Image: 460163561631.dkr.ecr.us-west-2.amazonaws.com/question-gen-repository:latest
+        Memory: '200'
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-stream-prefix: ecs
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/NLPEngine
+Outputs:
+  ClusterName:
+    Description: The name of the ECS cluster
+    Value:
+      Ref: ECSCluster
+    Export:
+      Name:
+        Fn::Join:
+        - ':'
+        - - Ref: AWS::StackName
+          - ClusterName
+  ExternalUrl:
+    Description: The url of the external load balancer
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - PublicLoadBalancer
+          - DNSName
+    Export:
+      Name:
+        Fn::Join:
+        - ':'
+        - - Ref: AWS::StackName
+          - ExternalUrl
+  TaskRole:
+    Description: The ARN of the ECS role
+    Value:
+      Fn::GetAtt:
+      - TaskRole
+      - Arn
+    Export:
+      Name:
+        Fn::Join:
+        - ':'
+        - - Ref: AWS::StackName
+          - TaskRole
+  ExecutionRole:
+    Description: The ARN of the ECS role
+    Value:
+      Fn::GetAtt:
+      - ExecutionRole
+      - Arn
+    Export:
+      Name:
+        Fn::Join:
+        - ':'
+        - - Ref: AWS::StackName
+          - ExecutionRole
+  PublicListener:
+    Description: The ARN of the public load balancer's Listener
+    Value:
+      Ref: PublicLoadBalancerListener
+    Export:
+      Name:
+        Fn::Join:
+        - ':'
+        - - Ref: AWS::StackName
+          - PublicListener
+  VPCId:
+    Description: The ID of the VPC that this stack is deployed in
+    Value:
+      Ref: VPC
+    Export:
+      Name:
+        Fn::Join:
+        - ':'
+        - - Ref: AWS::StackName
+          - VPCId
+  PublicSubnetOne:
+    Description: Public subnet one
+    Value:
+      Ref: PublicSubnetOne
+    Export:
+      Name:
+        Fn::Join:
+        - ':'
+        - - Ref: AWS::StackName
+          - PublicSubnetOne
+  PublicSubnetTwo:
+    Description: Public subnet two
+    Value:
+      Ref: PublicSubnetTwo
+    Export:
+      Name:
+        Fn::Join:
+        - ':'
+        - - Ref: AWS::StackName
+          - PublicSubnetTwo
+  FargateContainerSecurityGroup:
+    Description: A security group used to allow Fargate containers to receive traffic
+    Value:
+      Ref: FargateContainerSecurityGroup
+    Export:
+      Name:
+        Fn::Join:
+        - ':'
+        - - Ref: AWS::StackName
+          - FargateContainerSecurityGroup
