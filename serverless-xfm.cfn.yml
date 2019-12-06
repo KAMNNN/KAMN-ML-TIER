@@ -50,7 +50,7 @@ Resources:
         Variables:
           TEXT_BUCKET:
             Fn::Sub: ${AWS::AccountId}-us-west-2-sourcetextbucket
-      CodeUri: s3://460163561631-us-west-2-kamn-ml/6572d657e64f00481b6549c54af0b51d
+      CodeUri: s3://460163561631-us-west-2-kamn-ml/eece51e44ebcd4c801ae83c298a13c0e
   StartQuestionGenerationFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -63,6 +63,11 @@ Resources:
           Action: s3:GetObject*
           Resource:
             Fn::Sub: arn:aws:s3:::${AWS::AccountId}-us-west-2-sourcetextbucket/*
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action: sqs:SendMessage
+          Resource: '*'
       - Version: '2012-10-17'
         Statement:
         - Effect: Allow
@@ -93,6 +98,8 @@ Resources:
         Variables:
           TEXT_BUCKET:
             Fn::Sub: ${AWS::AccountId}-us-west-2-sourcetextbucket
+          ECS_PARAMS_QUEUE:
+            Ref: ECSParameterQueue
           TASK_DEFINITION:
             Ref: TaskDefinition
           ECS_CLUSTER:
@@ -105,7 +112,11 @@ Resources:
             Ref: PublicSubnetTwo
           SECURITY_GROUP:
             Ref: FargateContainerSecurityGroup
-      CodeUri: s3://460163561631-us-west-2-kamn-ml/6572d657e64f00481b6549c54af0b51d
+      CodeUri: s3://460163561631-us-west-2-kamn-ml/eece51e44ebcd4c801ae83c298a13c0e
+  ECSParameterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ECSParameterQueue
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -291,7 +302,10 @@ Resources:
           Version: 2012-10-17
           Statement:
           - Effect: Allow
-            Action: sqs:SendMessage
+            Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
             Resource: '*'
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition

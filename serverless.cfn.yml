@@ -85,6 +85,11 @@ Resources:
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: '*'
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
               Action: ecs:RunTask
               Resource: !Ref TaskDefinition
         - Version: '2012-10-17'
@@ -106,11 +111,16 @@ Resources:
       Environment:
         Variables:
           TEXT_BUCKET: !Sub '${AWS::AccountId}-us-west-2-sourcetextbucket'
+          ECS_PARAMS_QUEUE: !Ref ECSParameterQueue
           TASK_DEFINITION: !Ref TaskDefinition
           ECS_CLUSTER: !GetAtt ECSCluster.Arn
           SUBNET_ONE: !Ref PublicSubnetOne 
           SUBNET_TWO: !Ref PublicSubnetTwo
           SECURITY_GROUP: !Ref FargateContainerSecurityGroup
+  ECSParameterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ECSParameterQueue
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -290,7 +300,10 @@ Resources:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Action: sqs:SendMessage
+                Action: 
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
                 Resource: '*'
 
   TaskDefinition:

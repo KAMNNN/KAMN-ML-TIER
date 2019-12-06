@@ -3,7 +3,10 @@
 const s3Client = require('./clients/s3Client');
 const transcribeClient = require('./clients/transcribeClient');
 const ecsClient = require('./clients/ecsClient');
+const sqsClient = require('./clients/sqsClient');
+
 const textBucket = process.env.TEXT_BUCKET;
+const ecsParamsQueue = process.env.ECS_PARAMS_QUEUE;
 
 exports.startTranscriptionJob = async (event, context, callback) => {
 	console.log('Starting Transcription Job..');
@@ -34,7 +37,6 @@ exports.startTranscriptionJob = async (event, context, callback) => {
 
 exports.startQuestionGenerationFunction = async (event, context, callback) => {
 	console.log('Starting Question Generation Task..');
-  const bucket = event.Records[0].s3.bucket.name;
 	var response;
 	const params = {
     taskDefinition: process.env.TASK_DEFINITION,
@@ -53,7 +55,21 @@ exports.startQuestionGenerationFunction = async (event, context, callback) => {
 		}
 	};
 	try {
-		response = await ecsClient.runTask(params);
+		console.log('Getting transcript from s3..');
+	  const bucket = event.Records[0].s3.bucket.name;
+	  const key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
+	  const s3Params = {Bucket: bucket, Key: key};
+		const obj = await s3Client.getObject(s3Params);
+		const objJSON = JSON.parse(obj.Body.toString());
+		console.log('Sending transcript to sqs as ecs param..');
+		const sqsMessage = { transcript: objJSON.results.transcripts[0].transcript, session_id: '4389' };
+		const sqsParams = {
+			QueueUrl: ecsParamsQueue,
+			MessageBody: JSON.stringify(sqsMessage)
+		};
+		const sqsData = await sqsClient.sendMessage(sqsParams);
+		console.log('Starting ecs task..');
+	  response = await ecsClient.runTask(params);
 		console.log(response);
 	} catch (err) {
 		console.log(err);
