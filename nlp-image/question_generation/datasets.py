@@ -84,11 +84,11 @@ def vectorize(vectorize_type='fast'):
             with zipfile.ZipFile('./data/wiki.en.zip', 'r') as zip_ref:
                 zip_ref.extractall('./data/')
             os.remove('./data/wiki.en.zip')
-            model = FastTextKeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
+            model = FastTextKeyedVectors.load_fasttext_format('./data/wiki.en.vec', binary=False, encoding='utf8')
             word_vectors = model.wv
             return word_vectors
         else:
-            model = FastTextKeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
+            model = FastTextKeyedVectors.load_fasttext_format('./data/wiki.en.vec', binary=False, encoding='utf8')
             word_vectors = model.wv
             return word_vectors 
  
