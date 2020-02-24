@@ -15,7 +15,6 @@ source activate kamn
 pip install --no-cache-dir -U -r ./external/spaCy/requirements.txt
 python ./external/spaCy/setup.py build_ext --inplace
 pip install --no-cache-dir -U -e ./external/spaCy
-cd ./external/neuralcoref
 python ./external/neuralcoref/setup.py build_ext --inplace
 pip install --no-cache-dir -U -e ./external/neuralcoref
 python -m spacy download en_core_web_lg
