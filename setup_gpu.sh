@@ -4,18 +4,20 @@ git clone https://github.com/explosion/spaCy.git ./external/spaCy
 git clone https://github.com/huggingface/neuralcoref.git ./external/neuralcoref
 conda create -n kamn python=3.7
 conda install -n kamn anaconda
-conda install -n kamn pytorch cudatoolkit=10.1 -c pytorch
-conda install ignite -c pytorch
+conda install -n kamn pytorch cudatoolkit=10.1 ignite-c pytorch
 conda install -n kamn -c gensim
 unset CONDA_ALWAYS_YES 
 conda init --all --dry-run --verbose
 eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
 source activate kamn
-pip install --no-cache-dir -U -r ./external/spaCy/requirements.txt
-python ./external/spaCy/setup.py build_ext --inplace
-pip install --no-cache-dir -U -e ./external/spaCy
-python ./external/neuralcoref/setup.py build_ext --inplace
-pip install --no-cache-dir -U -e ./external/neuralcoref
+cd ./external/spacy
+pip install -r requirements.txt
+python setup.py build_ext --inplace
+pip install -e .
+cd ../neuralcoref
+python setup.py build_ext --inplace
+pip install -e .
+cd ../..
 python -m spacy download en_core_web_lg
 pip install -U pytorch_transformers 
 pip install -U tensorflow
