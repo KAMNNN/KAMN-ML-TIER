@@ -9,10 +9,15 @@
 *.userosscache
 *.sln.docstates
 
+./neuralcoref
+./spaCy
 ./nlp-image/question_generation/data/*
 ./nlp-image/question_generation/checkpoint/*
 ./nlp-image/question_generation/logs/*
 
+
+neuralcoref
+spaCy
 nlp-image/question_generation/data/*
 nlp-image/question_generation/checkpoint/*
 nlp-image/question_generation/logs/*
