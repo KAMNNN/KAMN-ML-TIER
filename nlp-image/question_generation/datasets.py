@@ -85,8 +85,11 @@ def vectorize(vectorize_type='fast'):
             os.remove('./data/wiki.en.zip')
             model = FastText.FastTextKeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
             word_vectors = model.wv
-            del model
             return word_vectors
+        else:
+            model = FastText.FastTextKeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
+            word_vectors = model.wv
+            return word_vectors 
  
     elif(vectorize_type == 'wiki'):
         if not os.path.exists(WIKI_DATA):
