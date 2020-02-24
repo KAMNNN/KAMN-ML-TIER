@@ -26,7 +26,7 @@ from argparse import ArgumentParser
 
 EPOCHS = 4
 BATCH_SIZE = 1
-ITERATION_STEP = 8
+ITERATION_STEP = 2
 THREAD_NUM = 1
 DISTRIBUTED = False
 

@@ -1,12 +1,10 @@
 FROM continuumio/miniconda
 WORKDIR .
-RUN apt-get update
-	&& apt-get install -y libpq-dev build-essential \
+RUN apt-get update && apt-get install -y libpq-dev build-essential \
 	&& rm -rf /var/lib/apt/lists/*
 RUN conda create -n kamn python=3.7 numpy anaconda gensim
 RUN	conda install -n kamn pytorch cpuonly ignite -c pytorch
 RUN conda update conda
-
 RUN conda init bash
 SHELL ["conda", "run", "-n", "kamn", "/bin/bash", "-c"]
 RUN pip install --upgrade pip
