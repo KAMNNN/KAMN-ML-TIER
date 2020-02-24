@@ -29,6 +29,21 @@ BATCH_SIZE = 1
 ITERATION_STEP = 2
 THREAD_NUM = 1
 DISTRIBUTED = False
+def top_filtering(logits, top_k=0., top_p=0.9, threshold=-float('Inf'), filter_value=-float('Inf')):
+    top_k = min(top_k, logits.size(-1))
+    if top_k > 0:
+        indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
+        logits[indices_to_remove] = filter_value
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+        cumulative_probabilities = torch.cumsum(torch.nn.softmax(sorted_logits, dim=-1), dim=-1)
+        sorted_indices_to_remove = cumulative_probabilities > top_p
+        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+        sorted_indices_to_remove[..., 0] = 0
+        indices_to_remove = sorted_indices[sorted_indices_to_remove]
+        logits[indices_to_remove] = filter_value
+    indices_to_remove = logits < threshold
+    logits[indices_to_remove] = filter_value
+    return logits
 
 
 def train():
@@ -71,6 +86,10 @@ def train():
     dl = DataLoader(ds, sampler=train_sampler, batch_size=BATCH_SIZE, shuffle= not DISTRIBUTED)  
     v_dl = DataLoader(v_ds, sampler=valid_sampler, shuffle=False)  
     
+    metrics = {"nll": Loss(torch.nn.CrossEntropyLoss(ignore_index=-1), output_transform=lambda x: (x[0][0], x[1][0])),}              
+    metrics.update({"average_nll": MetricsLambda(average_distributed_scalar, metrics["nll"]),})
+    metrics["average_ppl"] = MetricsLambda(math.exp, metrics["average_nll"])
+
    
     def update(engine, batch):
         model.train()
@@ -88,9 +107,11 @@ def train():
         model.eval()
         with torch.no_grad():
             batch = tuple(t.to(device) for t in batch)
-            lm_logits, *_ = model(batch[0], token_type_ids=batch[1])
+            input_ids, token_type_ids, lm_labels  = batch
+            model_outputs = model(input_ids, token_type_ids=token_type_ids)
+            lm_logits = model_outputs[0]            
             lm_logits_flat_shifted = lm_logits[..., :-1, :].contiguous().view(-1, lm_logits.size(-1))
-            lm_labels_flat_shifted = batch[2][..., 1:].contiguous().view(-1)
+            lm_labels_flat_shifted = lm_labels[..., 1:].contiguous().view(-1)
             return lm_logits_flat_shifted, lm_labels_flat_shifted
 
     trainer = Engine(update)
@@ -98,19 +119,15 @@ def train():
 
     scheduler = PiecewiseLinear(optimizer, "lr", [(0, 6.25e-5), (EPOCHS * len(ds)//BATCH_SIZE, 0.0)])   
     trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
-    trainer.add_event_handler(Events.EPOCH_STARTED, lambda _: evaluator.run(v_dl))
-    #trainer.add_event_handler(Events.COMPLETED, lambda _: evaluator.run(v_dl))
+
+    # trainer.add_event_handler(Events.STARTED, lambda _: evaluator.run(v_dl))
     
     if DISTRIBUTED:
         trainer.add_event_handler(Events.EPOCH_STARTED, lambda engine: train_sampler.set_epoch(engine.state.epoch))
         evaluator.add_event_handler(Events.EPOCH_STARTED, lambda engine: valid_sampler.set_epoch(engine.state.epoch))
     
     RunningAverage(output_transform=lambda x: x).attach(trainer, "loss")
-    metrics = {"nll": Loss(torch.nn.CrossEntropyLoss(ignore_index=-1), output_transform=lambda x: (x[0][0], x[1][0])),
-               "accuracy": Accuracy(output_transform=lambda x: (x[0][1], x[1][1]))}
-    metrics.update({"average_nll": MetricsLambda(average_distributed_scalar, metrics["nll"]),
-                    "average_accuracy": MetricsLambda(average_distributed_scalar, metrics["accuracy"])})
-    metrics["average_ppl"] = MetricsLambda(math.exp, metrics["average_nll"])
+
     for name, metric in metrics.items():
         metric.attach(evaluator, name)
     
@@ -131,6 +148,7 @@ def train():
         tokenizer.save_pretrained('./checkpoint') 
     
     trainer.run(dl, max_epochs=EPOCHS)
+
     if(args.local_rank in [0, -1]):
         tb_logger.close()
 
