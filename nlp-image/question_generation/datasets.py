@@ -244,7 +244,7 @@ def natural_questions(dev=False, Large=False, long=False):
             with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=NQ_SP_TRAIN_URL.split('/')[-1]) as t:    
                 urllib.request.urlretrieve(NQ_SP_TRAIN_URL, NQ_SP_TRAIN)  
     if Large:
-        if os.path.exists('./data/v1.0'):
+        if not os.path.exists('./data/v1.0'):
             p = subprocess.call("gsutil -m cp -R gs://natural_questions/v1.0 ./data", shell=True)
         if(dev):
             files = [open(os.path.join('./data/v1.0/dev', x), 'rb') for x in os.listdir('./data/v1.0/dev')]
