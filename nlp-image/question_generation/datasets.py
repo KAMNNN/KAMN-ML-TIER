@@ -15,6 +15,7 @@ import multiprocessing
 
 from gensim.corpora import WikiCorpus
 from gensim.models import KeyedVectors
+from gensim.models.keyedvectors import FastTextKeyedVectors
 from gensim.scripts.glove2word2vec import glove2word2vec
 from gensim.models import Word2Vec
 from gensim.models.word2vec import LineSentence
@@ -83,11 +84,11 @@ def vectorize(vectorize_type='fast'):
             with zipfile.ZipFile('./data/wiki.en.zip', 'r') as zip_ref:
                 zip_ref.extractall('./data/')
             os.remove('./data/wiki.en.zip')
-            model = FastText.FastTextKeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
+            model = FastTextKeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
             word_vectors = model.wv
             return word_vectors
         else:
-            model = FastText.FastTextKeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
+            model = FastTextKeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
             word_vectors = model.wv
             return word_vectors 
  
