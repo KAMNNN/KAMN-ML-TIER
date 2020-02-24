@@ -14,7 +14,7 @@ class nlp_engine:
         self.tokenizer   = BertTokenizer.from_pretrained("bert-base-uncased")
         self.model       = BertModel.from_pretrained("bert-base-uncased")
         self.use_coref = False
-        self.vectorizer = data.vectorize(False, True)
+        self.vectorizer = data.vectorize('fast')
         self.stemmer = PorterStemmer()
 
     def make_multiple_choice(self, word, sentence, ai=False):
@@ -53,8 +53,6 @@ class nlp_engine:
                 if( (token.pos_ == 'PROPN' or token.pos_ == 'NOUN') and token._.in_coref):
                     for cluster in token._.coref_clusters:
                         nn_spans.append((token.text, cluster.main.text))
-
-
 
         sa_pairs = dict()
         for a,s in ner_spans + nn_spans:
