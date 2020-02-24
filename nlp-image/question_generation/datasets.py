@@ -63,8 +63,8 @@ class TqdmUpTo(tqdm):
         if tsize is not None:
             self.total = tsize
         self.update(b * bsize - self.n)
-
-if(os.getcwd().split('/')[-1] != 'question_generation' or os.getcwd().split('\\')[-1] != 'question_generation'): 
+t1 = os.getcwd().split('\\')[-1]
+if(os.getcwd().split('/')[-1] != 'question_generation' and os.getcwd().split('\\')[-1] != 'question_generation'): 
     os.chdir('./question_generation')
 
 if not os.path.exists('./data'):
@@ -235,6 +235,8 @@ def natural_questions(dev=False, Large=False, long=False):
 
     ctx,que,ans_l,ans_s,ans_yn = list(), list(), list(), list(), list()
     context, question = -1, -1
+    files = list()
+    
     if not os.path.exists(NQ_SP_DEV):
             with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=NQ_SP_DEV_URL.split('/')[-1]) as t:    
                 urllib.request.urlretrieve(NQ_SP_DEV_URL, NQ_SP_DEV)  
@@ -242,52 +244,56 @@ def natural_questions(dev=False, Large=False, long=False):
             with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=NQ_SP_TRAIN_URL.split('/')[-1]) as t:    
                 urllib.request.urlretrieve(NQ_SP_TRAIN_URL, NQ_SP_TRAIN)  
     if Large:
-        p = subprocess.call("gsutil -m cp -R gs://natural_questions/v1.0 ./data", shell=True)
-        NQ_SP_DEV = './v1.0/train/dev/'
-    
-    if(dev):
-        file = open(NQ_SP_DEV, 'rb')
+        if os.path.exists('./v1.0'):
+            p = subprocess.call("gsutil -m cp -R gs://natural_questions/v1.0 ./data", shell=True)
+        if(dev):
+            files = [open(os.path.join('./data/v1.0/dev', x), 'rb') for x in os.listdir('./data/v1.0/dev')]
+        else:
+            files = [open(os.path.join('./data/v1.0/train',x), 'rb') for x in os.listdir('./data/v1.0/train')]
+
     else:
-        file = open(NQ_SP_TRAIN, 'rb')
+        if(dev):
+            files.append(open(NQ_SP_DEV, 'rb'))
+        else:
+            files.append(open(NQ_SP_TRAIN, 'rb'))
 
-    with GzipFile(fileobj=file) as input_file:
-        for line in tqdm(input_file, desc='PreProcessing NQ'):
-            json_example = json.loads(line)
-            example_id = json_example['example_id']
-            document_tokens = json_example['document_tokens']
-            ctx.append(" ".join([re.sub(" ", "_", t['token']) for t in json_example['document_tokens'] if t['html_token'] == False]))
-            context += 1
-            que.append(json_example['question_text']+'?')
-            question += 1
-            canidates = []
+    for file in files:
+        with GzipFile(fileobj=file) as input_file:
+            for line in tqdm(input_file, desc='PreProcessing NQ'):
+                json_example = json.loads(line)
+                example_id = json_example['example_id']
+                document_tokens = json_example['document_tokens']
+                ctx.append(" ".join([re.sub(" ", "_", t['token']) for t in json_example['document_tokens'] if t['html_token'] == False]))
+                context += 1
+                que.append(json_example['question_text']+'?')
+                question += 1
+                canidates = []
+                for annotation in json_example['annotations']:
+                    if(len(annotation['long_answer']) > 0 and annotation['long_answer']['candidate_index'] not in canidates):
+                        long_token = annotation['long_answer']
+                        canidates.append(long_token['candidate_index'])
+                        long_answer = ' '.join([re.sub(" ", "_", t['token']) for t in document_tokens[long_token['start_token']: long_token['end_token']] if t['html_token'] == False])                    
+                        if(long_answer != ''):
+                            start = ctx[context].find(long_answer)
+                            ans_l.append([long_answer, start, context, question])
+                    for short_span_rec in annotation['short_answers']:
+                        short_answer = ' '.join([re.sub(" ", "_", t['token']) for t in document_tokens[short_span_rec['start_token']: short_span_rec['end_token']] if t['html_token'] == False])
+                        if(short_answer != ''):
+                            start = ctx[context].find(short_answer)
+                            ans_s.append([short_answer, start, context, question])
 
-            for annotation in json_example['annotations']:
-                if(len(annotation['long_answer']) > 0 and annotation['long_answer']['candidate_index'] not in canidates):
-                    long_token = annotation['long_answer']
-                    canidates.append(long_token['candidate_index'])
-                    long_answer = ' '.join([re.sub(" ", "_", t['token']) for t in document_tokens[long_token['start_token']: long_token['end_token']] if t['html_token'] == False])                    
-                    if(long_answer != ''):
-                        start = ctx[context].find(long_answer)
-                        ans_l.append([long_answer, start, context, question])
-
-                for short_span_rec in annotation['short_answers']:
-                    short_answer = ' '.join([re.sub(" ", "_", t['token']) for t in document_tokens[short_span_rec['start_token']: short_span_rec['end_token']] if t['html_token'] == False])
-                    if(short_answer != ''):
-                        start = ctx[context].find(short_answer)
-                        ans_s.append([short_answer, start, context, question])
-
-                yn_y = annotation["yes_no_answer"]
-                if(yn_y != 'NONE'):
-                    ans_yn.append([yn_y, 0, context, question])
-                    
-            for i, c in enumerate(json_example['long_answer_candidates']):
-                if(i not in canidates):
-                    start_token = long_token['start_token']
-                    end_token   = long_token['end_token']
-                    long_answer = ' '.join([re.sub(" ", "_", t['token']) for t in document_tokens[start_token: end_token] if t['html_token'] == False]) 
-                    if(long_answer != ''):
-                        start = ctx[context].find(long_answer)
-                        ans_l.append([long_answer, start, context, question])
+                    yn_y = annotation["yes_no_answer"]
+                    if(yn_y != 'NONE'):
+                        ans_yn.append([yn_y, 0, context, question])
+                        
+                for i, c in enumerate(json_example['long_answer_candidates']):
+                    if(i not in canidates):
+                        start_token = long_token['start_token']
+                        end_token   = long_token['end_token']
+                        long_answer = ' '.join([re.sub(" ", "_", t['token']) for t in document_tokens[start_token: end_token] if t['html_token'] == False]) 
+                        if(long_answer != ''):
+                            start = ctx[context].find(long_answer)
+                            ans_l.append([long_answer, start, context, question])
     
     if(long):
         ans_s.extend(ans_l) 
@@ -311,7 +317,7 @@ def preprocess(dev=False, *args):
         elif arg == 'quac':
             c,q,a = quac(dev)
         elif arg == 'natural_questions':
-            c,q,a = natural_questions(dev, Large=False)
+            c,q,a = natural_questions(dev, Large=True)
         ctx.extend(c)
         que.extend(q)
         ans.extend(a)
@@ -319,4 +325,4 @@ def preprocess(dev=False, *args):
     return ctx, que, ans
 
 if __name__ == "__main__":
-    preprocess(True, 'natural_questions')
+    preprocess(False, 'natural_questions')
