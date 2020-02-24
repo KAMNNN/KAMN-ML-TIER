@@ -1,7 +1,7 @@
 import torch
 import spacy
 import neuralcoref
-from transformers import *
+from pytorch_transformers import *
 from gensim.parsing.porter import PorterStemmer
 import question_generation.datasets as data
 

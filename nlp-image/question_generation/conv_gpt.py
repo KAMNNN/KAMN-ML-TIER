@@ -98,7 +98,7 @@ def train():
 
     scheduler = PiecewiseLinear(optimizer, "lr", [(0, 6.25e-5), (EPOCHS * len(ds)//BATCH_SIZE, 0.0)])   
     trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
-    trainer.add_event_handler(Events.EPOCH_COMPLETED, lambda _: evaluator.run(v_dl))
+    trainer.add_event_handler(Events.EPOCH_STARTED, lambda _: evaluator.run(v_dl))
     #trainer.add_event_handler(Events.COMPLETED, lambda _: evaluator.run(v_dl))
     
     if DISTRIBUTED:
