@@ -3,7 +3,6 @@ import torch.nn as nn
 import spacy
 from tqdm import tqdm
 from collections import defaultdict
-from transformers import *
 from torch.utils.data import Dataset   
 from multiprocessing import Pool
 import multiprocessing as mp
@@ -134,7 +133,7 @@ MODEL_INPUTS = ["input_ids", "lm_labels", "token_type_ids"]
 class Conv_GPT2_DataClass(DataClass):
     def __init__(self, tokenizer, dev=False):
         super(Conv_GPT2_DataClass, self).__init__(dev)
-        self.tokenizer_ = BertTokenizer.from_pretrained("bert-base-uncased")
+        #self.tokenizer_ = BertTokenizer.from_pretrained("bert-base-uncased")
         self.tokenizer1 = tokenizer
         self.truncated_sequences = 0
 
@@ -190,7 +189,7 @@ class Conv_GPT2_DataClass(DataClass):
         max_l = self.tokenizer1.max_len
         out = list()
         for name in instance.keys():
-            #out.append(torch.tensor( instance[name] + [padding if name != 'lm_labels' else -1] * (max_l - len(instance[name])), dtype=torch.long))
-            out.append(torch.tensor(instance[name], dtype=torch.long))
+            out.append(torch.tensor( instance[name] + [padding if name != 'lm_labels' else -1] * (max_l - len(instance[name])), dtype=torch.long))
+            #out.append(torch.tensor(instance[name], dtype=torch.long))
         
         return out

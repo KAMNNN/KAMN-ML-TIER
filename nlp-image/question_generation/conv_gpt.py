@@ -24,11 +24,12 @@ from argparse import ArgumentParser
 #python -m spacy download en_core_web_lg
 #python -m spacy download en_core_web_sm
 
-EPOCHS = 4
-BATCH_SIZE = 1
+EPOCHS = 10
+BATCH_SIZE = 2
 ITERATION_STEP = 2
-THREAD_NUM = 1
+THREAD_NUM = 24
 DISTRIBUTED = False
+
 def top_filtering(logits, top_k=0., top_p=0.9, threshold=-float('Inf'), filter_value=-float('Inf')):
     top_k = min(top_k, logits.size(-1))
     if top_k > 0:
@@ -124,7 +125,7 @@ def train():
     
     if DISTRIBUTED:
         trainer.add_event_handler(Events.EPOCH_STARTED, lambda engine: train_sampler.set_epoch(engine.state.epoch))
-        evaluator.add_event_handler(Events.EPOCH_STARTED, lambda engine: valid_sampler.set_epoch(engine.state.epoch))
+        #evaluator.add_event_handler(Events.EPOCH_STARTED, lambda engine: valid_sampler.set_epoch(engine.state.epoch))
     
     RunningAverage(output_transform=lambda x: x).attach(trainer, "loss")
 
@@ -134,12 +135,12 @@ def train():
     if(args.local_rank in [0, -1]):
         pbar = ProgressBar(persist=True)
         pbar.attach(trainer, metric_names=["loss"])
-        evaluator.add_event_handler(Events.COMPLETED, lambda _: pbar.log_message("Validation: %s" % pformat(evaluator.state.metrics)))  
+        #evaluator.add_event_handler(Events.COMPLETED, lambda _: pbar.log_message("Validation: %s" % pformat(evaluator.state.metrics)))  
 
         tb_logger = TensorboardLogger(log_dir='./logs')
         tb_logger.attach(trainer, log_handler=OutputHandler(tag="training", metric_names=["loss"]), event_name=Events.ITERATION_COMPLETED)
         tb_logger.attach(trainer, log_handler=OptimizerParamsHandler(optimizer), event_name=Events.ITERATION_STARTED)
-        tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()), another_engine=trainer), event_name=Events.EPOCH_COMPLETED)
+        #tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()), another_engine=trainer), event_name=Events.EPOCH_COMPLETED)
         
         checkpoint_handler = ModelCheckpoint('./checkpoint', '_checkpoint', n_saved=3)
         trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {'gpt2_qg': getattr(model, 'module', model)})  
