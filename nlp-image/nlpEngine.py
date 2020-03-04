@@ -4,6 +4,7 @@ import neuralcoref
 from pytorch_transformers import *
 from gensim.parsing.porter import PorterStemmer
 import question_generation.datasets as data
+
 nlp = spacy.load("en_core_web_lg")
 USE_COREF = False
 
@@ -20,13 +21,18 @@ class nlp_engine:
 
     def make_multiple_choice(self, word, sentence, ai=False):
         if(len(word.split(' ')) == 1):
-            if(word in sentence):
+            if(word in sentence.split(' ')):
                 most = self.vectorizer.most_similar(word.lower(), topn=20)
                 choices = [x[0].lower() for x in most]
                 tmp = list()
+                stems = list()
+
                 tmp.append(word.lower())
+                stems.append(self.stemmer.stem(word.lower()))
                 for x in choices:
-                    if(x not in tmp):
+                    stem = self.stemmer.stem(x.replace('.',''))
+                    if(stem not in stems):
+                        stems.append(stem)
                         tmp.append(x)
                 return { "type":'mc', "question": sentence.replace(word, '______'), "answer": tmp[:4] }
             else:
@@ -35,11 +41,14 @@ class nlp_engine:
             return None
 
     def fill_in_blank(self, word, sentence):
-        if(word in sentence):
-            return  { "type":'fb', "question": sentence.replace(word, '______'), "answer": word }
+        if(len(word.split(' ')) == 1):
+            if(word in sentence.split(' ')):
+                return  { "type":'fb', "question": sentence.replace(word, '______'), "answer": word }
+            else:
+                return None
         else:
             return None
-
+            
     def __call__(self, context):
         context_doc = nlp(context) 
         ents = context_doc.ents

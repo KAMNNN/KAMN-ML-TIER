@@ -45,8 +45,8 @@ WIKI_URL = "http://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-article
 WIKI_DATA = "./data/enwiki-latest-pages-articles.xml.bz2"
 WIKI_EXTRACT_DATA = "./data/wiki.en.text"
 WIKI_MODEL = "./data/wiki.en.word2vec.model"
-FASTTEXT_URL = "https://dl.fbaipublicfiles.com/fasttext/vectors-wiki/wiki.en.zip"
-FASTTEXT_BIN = "./data/wiki.en.bin"
+FASTTEXT_URL = "https://dl.fbaipublicfiles.com/fasttext/vectors-english/crawl-300d-2M-subword.zip"
+FASTTEXT_BIN = "./data/crawl-300d-2M-subword.bin"
 SQUAD_TRAIN = "./data/squad-train-v2.0.json"
 SQUAD_DEV   = "./data/squad-dev-v2.0.json"
 COQA_TRAIN = "./data/coqa-train-v1.0.json"
@@ -80,11 +80,11 @@ def vectorize(vectorize_type='fast'):
     if(vectorize_type == 'fast'):
         if not os.path.exists(FASTTEXT_BIN):
             with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=FASTTEXT_URL.split('/')[-1]) as t:
-                urllib.request.urlretrieve(FASTTEXT_URL, './data/wiki.en.zip', reporthook=t.update_to)
-            with zipfile.ZipFile('./data/wiki.en.zip', 'r') as zip_ref:
+                urllib.request.urlretrieve(FASTTEXT_URL, './data/crawl-300d-2M-subword.zip', reporthook=t.update_to)
+            with zipfile.ZipFile('./data/crawl-300d-2M-subword.zip', 'r') as zip_ref:
                 zip_ref.extractall('./data/')
-            os.remove('./data/wiki.en.zip')
-            model = KeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf-8')
+            os.remove('./data/crawl-300d-2M-subword.zip')
+            model = fasttext.load_facebook_vectors('./data/crawl-300d-2M-subword.bin')
             word_vectors = model.wv
             return word_vectors
         else:
