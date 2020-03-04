@@ -4,10 +4,11 @@ import neuralcoref
 from pytorch_transformers import *
 from gensim.parsing.porter import PorterStemmer
 import question_generation.datasets as data
-
-
 nlp = spacy.load("en_core_web_lg")
-neuralcoref.add_to_pipe(nlp)
+USE_COREF = False
+
+if(USE_COREF):
+    neuralcoref.add_to_pipe(nlp)
 
 class nlp_engine:
     def __init__(self,):
@@ -18,10 +19,18 @@ class nlp_engine:
         self.stemmer = PorterStemmer()
 
     def make_multiple_choice(self, word, sentence, ai=False):
-        if(word in sentence):
-            choices = [x[0] for x in self.vectorizer.most_similar(word)[:3]]
-            choices.append(word)
-            return { "type":'mc', "question": sentence.replace(word, '______'), "answer": choices }
+        if(len(word.split(' ')) == 1):
+            if(word in sentence):
+                most = self.vectorizer.most_similar(word.lower(), topn=20)
+                choices = [x[0].lower() for x in most]
+                tmp = list()
+                tmp.append(word.lower())
+                for x in choices:
+                    if(x not in tmp):
+                        tmp.append(x)
+                return { "type":'mc', "question": sentence.replace(word, '______'), "answer": tmp[:4] }
+            else:
+                return None
         else:
             return None
 
@@ -35,7 +44,7 @@ class nlp_engine:
         context_doc = nlp(context) 
         ents = context_doc.ents
         sentences_doc = [x.text for x in context_doc.sents]
-        self.use_coref = context_doc._.has_coref
+        self.use_coref = USE_COREF and context_doc._.has_coref
         
         sentence_lengths = [len(sentences_doc[0])]
         for i in range(1, len(sentences_doc)):
@@ -62,6 +71,7 @@ class nlp_engine:
                 sa_pairs[a].append(s)
 
         qa_pairs = list()
+        mc_pairs = list()
         for w,sents in sa_pairs.items():
             for s in sents:
                 o = self.fill_in_blank(w,s)
@@ -70,8 +80,10 @@ class nlp_engine:
                 o = self.make_multiple_choice(w, s, False)
                 if(o != None):
                     qa_pairs.append(o)
+                    mc_pairs.append(o)
             
         print(len(qa_pairs))
+        print(mc_pairs)
         return qa_pairs
        
 

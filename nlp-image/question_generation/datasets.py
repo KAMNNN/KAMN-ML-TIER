@@ -17,7 +17,7 @@ from gensim.corpora import WikiCorpus
 from gensim.models import KeyedVectors
 from gensim.models.keyedvectors import FastTextKeyedVectors
 from gensim.scripts.glove2word2vec import glove2word2vec
-from gensim.models import Word2Vec
+from gensim.models import Word2Vec, fasttext
 from gensim.models.word2vec import LineSentence
 from gensim.models.wrappers import FastText
 try:
@@ -84,12 +84,13 @@ def vectorize(vectorize_type='fast'):
             with zipfile.ZipFile('./data/wiki.en.zip', 'r') as zip_ref:
                 zip_ref.extractall('./data/')
             os.remove('./data/wiki.en.zip')
-            model = KeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
+            model = KeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf-8')
             word_vectors = model.wv
             return word_vectors
         else:
-            model = KeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
+            model = fasttext.load_facebook_vectors('./data/crawl-300d-2M-subword.bin')
             word_vectors = model.wv
+            print("VEC MODEL LOADED")
             return word_vectors 
  
     elif(vectorize_type == 'wiki'):
