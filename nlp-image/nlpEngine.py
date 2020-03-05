@@ -13,8 +13,8 @@ if(USE_COREF):
 
 class nlp_engine:
     def __init__(self,):
-        self.tokenizer   = BertTokenizer.from_pretrained("bert-base-uncased")
-        self.model       = BertModel.from_pretrained("bert-base-uncased")
+        # self.tokenizer   = BertTokenizer.from_pretrained("bert-base-uncased")
+        # self.model       = BertModel.from_pretrained("bert-base-uncased")
         self.use_coref = False
         self.vectorizer = data.vectorize('fast')
         self.stemmer = PorterStemmer()

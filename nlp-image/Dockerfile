@@ -1,14 +1,13 @@
 FROM continuumio/miniconda
+RUN apt-get update && apt-get install -y libpq-dev build-essential git curl && rm -rf /var/lib/apt/lists/*
 WORKDIR .
-ADD ../setup.sh ./setup.sh
-
-RUN apt-get update && apt-get install -y libpq-dev build-essential git \
-	&& rm -rf /var/lib/apt/lists/*
-RUN conda create -n kamn python=3.7 numpy anaconda gensim
-RUN	conda install -n kamn pytorch cpuonly ignite -c pytorch
 RUN conda update conda
+RUN	conda install pytorch cpuonly ignite -c pytorch
+RUN conda install -c conda-forge gensim
 RUN conda init bash
-
-RUN sh ./setup.sh
-
-ENTRYPOINT ["conda", "run", "-n", "kamn", "python", "app.py"]
+RUN pip install -U pytorch_transformers 
+RUN pip install -U tensorflow
+RUN pip install -U --upgrade gensim
+RUN pip install -U tensorboardX
+SHELL ["python", "-m", "spacy", "download", "en_web_core_lg"]
+ENTRYPOINT ["conda", "run", "python", "app.py"]

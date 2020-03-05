@@ -15,10 +15,6 @@ pip install -r requirements.txt
 python setup.py build_ext --inplace
 pip install -U -e .
 cd ../neuralcoref
-python setup.py build_ext --inplace
-pip install -U -e .
-cd ../..
-python -m spacy download en_core_web_lg
 pip install -U pytorch_transformers 
 pip install -U tensorflow
 pip install -U --upgrade gensim
