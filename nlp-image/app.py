@@ -13,10 +13,9 @@ params = json.loads(message.body)
 message.delete()
 
 session_id = params['session_id']
-
+print('Starting question generation')
 question = nlpEngine.generate_question(params['transcript'])
 
-print('Starting question generation')
 
 question_queue = sqs.get_queue_by_name(QueueName='{}.fifo'.format(session_id))
 
