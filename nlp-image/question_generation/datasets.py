@@ -64,7 +64,8 @@ class TqdmUpTo(tqdm):
         if tsize is not None:
             self.total = tsize
         self.update(b * bsize - self.n)
-t1 = os.getcwd().split('\\')[-1]
+t1 = os.getcwd().split('\\')
+print(t1)
 if(os.getcwd().split('/')[-1] != 'question_generation' and os.getcwd().split('\\')[-1] != 'question_generation'): 
     os.chdir('./question_generation')
 
