@@ -50,7 +50,7 @@ Resources:
         Variables:
           TEXT_BUCKET:
             Fn::Sub: ${AWS::AccountId}-us-west-2-sourcetextbucket
-      CodeUri: s3://460163561631-us-west-2-kamn-ml/eece51e44ebcd4c801ae83c298a13c0e
+      CodeUri: s3://460163561631-us-west-2-kamn-ml/cf279cd68506263e94995044a75c461a
   StartQuestionGenerationFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -112,7 +112,7 @@ Resources:
             Ref: PublicSubnetTwo
           SECURITY_GROUP:
             Ref: FargateContainerSecurityGroup
-      CodeUri: s3://460163561631-us-west-2-kamn-ml/eece51e44ebcd4c801ae83c298a13c0e
+      CodeUri: s3://460163561631-us-west-2-kamn-ml/cf279cd68506263e94995044a75c461a
   ECSParameterQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -198,6 +198,8 @@ Resources:
         Ref: PublicRouteTable
   ECSCluster:
     Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: KAMNML-Cluster
   FargateContainerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -324,10 +326,8 @@ Resources:
       - FARGATE
       ContainerDefinitions:
       - Name: question-gen
-        Cpu: '10'
         Essential: 'true'
-        Image: 460163561631.dkr.ecr.us-west-2.amazonaws.com/question-gen-repository:latest
-        Memory: '200'
+        Image: 460163561631.dkr.ecr.us-west-2.amazonaws.com/question-gen:latest
         LogConfiguration:
           LogDriver: awslogs
           Options:
